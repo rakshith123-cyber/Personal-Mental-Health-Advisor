@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const mockDb = require('../mockDb');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -20,20 +20,18 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Passwords do not match' });
     }
 
-    let user = await User.findOne({ email });
+    let user = await mockDb.findUserByEmail(email);
     if (user) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    user = new User({
+    user = await mockDb.createUser({
       name,
       email,
       password: hashedPassword,
     });
-
-    await user.save();
 
     const token = generateToken(user._id);
 
@@ -60,7 +58,7 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const user = await User.findOne({ email });
+    const user = await mockDb.findUserByEmail(email);
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -89,15 +87,18 @@ exports.login = async (req, res) => {
 
 exports.getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('-password');
+    const user = await mockDb.findUserById(req.userId);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Don't send password to client
+    const { password, ...userWithoutPassword } = user;
+
     res.json({
       success: true,
-      user,
+      user: userWithoutPassword,
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching profile', error: error.message });

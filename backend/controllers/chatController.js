@@ -1,5 +1,4 @@
-const ChatSession = require('../models/ChatSession');
-const User = require('../models/User');
+const mockDb = require('../mockDb');
 
 // Simple chatbot responses with mental health focus
 const generateBotResponse = (userMessage) => {
@@ -107,30 +106,25 @@ exports.sendMessage = async (req, res) => {
     }
 
     // Find or create chat session
-    let chatSession = await ChatSession.findOne({ sessionId });
+    let chatSession = await mockDb.findChatSession(sessionId, userId);
     if (!chatSession) {
-      chatSession = new ChatSession({
-        userId,
-        sessionId,
+      chatSession = await mockDb.createOrUpdateChatSession(sessionId, userId, {
         mood,
       });
     }
 
     // Add user message
-    chatSession.messages.push({
+    chatSession = await mockDb.addMessageToSession(sessionId, userId, {
       role: 'user',
       content: message,
     });
 
     // Generate bot response
     const botResponse = generateBotResponse(message);
-    chatSession.messages.push({
+    chatSession = await mockDb.addMessageToSession(sessionId, userId, {
       role: 'assistant',
       content: botResponse,
     });
-
-    chatSession.updatedAt = new Date();
-    await chatSession.save();
 
     res.json({
       success: true,
@@ -147,7 +141,7 @@ exports.getChatHistory = async (req, res) => {
     const { sessionId } = req.params;
     const userId = req.userId;
 
-    const chatSession = await ChatSession.findOne({ sessionId, userId });
+    const chatSession = await mockDb.findChatSession(sessionId, userId);
 
     if (!chatSession) {
       return res.status(404).json({ message: 'Chat session not found' });
@@ -166,7 +160,7 @@ exports.getAllSessions = async (req, res) => {
   try {
     const userId = req.userId;
 
-    const sessions = await ChatSession.find({ userId }).sort({ createdAt: -1 });
+    const sessions = await mockDb.getChatSessions(userId);
 
     res.json({
       success: true,
@@ -182,11 +176,7 @@ exports.deleteSession = async (req, res) => {
     const { sessionId } = req.params;
     const userId = req.userId;
 
-    const chatSession = await ChatSession.findOneAndDelete({ sessionId, userId });
-
-    if (!chatSession) {
-      return res.status(404).json({ message: 'Chat session not found' });
-    }
+    await mockDb.deleteChatSession(sessionId, userId);
 
     res.json({ success: true, message: 'Chat session deleted' });
   } catch (error) {

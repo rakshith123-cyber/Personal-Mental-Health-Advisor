@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const User = require('../models/User');
+const mockDb = require('../mockDb');
 
 router.get('/profile', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('-password');
-    res.json({ success: true, user });
+    const user = await mockDb.findUserById(req.userId);
+    const { password, ...userWithoutPassword } = user;
+    res.json({ success: true, user: userWithoutPassword });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching user' });
   }
@@ -15,13 +16,15 @@ router.get('/profile', auth, async (req, res) => {
 router.put('/update', auth, async (req, res) => {
   try {
     const { name, age, preferredTopics } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.userId,
-      { name, age, preferredTopics, updatedAt: new Date() },
-      { new: true }
-    ).select('-password');
+    const user = await mockDb.updateUser(req.userId, {
+      name,
+      age,
+      preferredTopics,
+      updatedAt: new Date(),
+    });
 
-    res.json({ success: true, user });
+    const { password, ...userWithoutPassword } = user;
+    res.json({ success: true, user: userWithoutPassword });
   } catch (error) {
     res.status(500).json({ message: 'Error updating user' });
   }
